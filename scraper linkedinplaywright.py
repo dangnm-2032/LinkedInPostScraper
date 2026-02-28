@@ -29,7 +29,11 @@ def scrape_current_page(page, max_posts, scroll_delay_min, scroll_delay_max,
     print("Scrolling to load posts...")
     while post_count < max_posts and scroll_attempts < max_scroll_attempts:
         current_posts = []
-        for selector in [".feed-shared-update-v2", ".occludable-update", ".feed-shared-article"]:
+        for selector in [
+            ".feed-shared-update-v2", 
+            ".occludable-update", 
+            ".feed-shared-article",
+        ]:
             posts = page.locator(selector).all()
             if posts and len(posts) > len(current_posts):
                 current_posts = posts
@@ -59,19 +63,26 @@ def scrape_current_page(page, max_posts, scroll_delay_min, scroll_delay_max,
                 print(f"Found {len(posts)} posts with selector: {selector}")
                 for i, post in enumerate(posts[:max_posts]):
                     try:
-                        post_text = None
-                        # Try multiple selectors for the post text.
+                        post_text = ""
+                        max_length = 0
+
                         for text_selector in [
-                            ".feed-shared-update-v2__description", 
-                            ".update-components-text", 
+                            ".feed-shared-update-v2__description",
+                            ".update-components-text",
                             ".feed-shared-text",
                             ".feed-shared-inline-show-more-text"
                         ]:
-                            text_element = post.locator(text_selector).first
-                            if text_element and text_element.is_visible():
-                                post_text = text_element.text_content().strip()
-                                if post_text:
-                                    break
+                            try:
+                                text_element = post.locator(text_selector).first
+                                if text_element and text_element.is_visible():
+                                    text = text_element.text_content()
+                                    if text:
+                                        text = text.strip()
+                                        if len(text) > max_length:
+                                            max_length = len(text)
+                                            post_text = text
+                            except Exception:
+                                pass  # tránh crash nếu selector lỗi
                         if not post_text:
                             print(f"Post {i+1} has no text content, skipping...")
                             continue
@@ -110,12 +121,41 @@ def scrape_current_page(page, max_posts, scroll_delay_min, scroll_delay_max,
                                 if comments:
                                     break
 
+                        reposts = "0 reposts"
+                        for reposts_selector in [
+                            ".social-details-social-counts",
+                            ".social-details-social-counts__count"
+                        ]:
+                            reposts_element = post.locator(reposts_selector).first
+                            if reposts_element and reposts_element.is_visible():
+                                reposts = reposts_element.text_content().strip()
+                                # print(reposts)
+                                if reposts:
+                                    break
+
+                        activity_urn = None
+                        try:
+                            activity_urn = "https://www.linkedin.com/feed/update/" + post.get_attribute("data-urn")
+                        except Exception:
+                            pass
+
+                        estimated_upload_time = None
+                        try:
+                            estimated_upload_time = post.get_attribute("data-urn").replace("urn:li:activity:", "")
+                            estimated_upload_time = int(estimated_upload_time) >> 22
+                            estimated_upload_time = estimated_upload_time / 1000
+                        except Exception:
+                            pass
+
                         posts_data.append({
                             "index": i + 1,
                             "date": post_date,
                             "text": post_text,
                             "reactions": reactions,
-                            "comments": comments
+                            "comments": comments,
+                            "reposts": reposts,
+                            "activity_urn": activity_urn,
+                            "estimated_upload_time": estimated_upload_time
                         })
                         print(f"Processed post {i+1}/{min(len(posts), max_posts)}")
                     except Exception as e:
@@ -145,12 +185,12 @@ def save_results(posts_data):
 
 def main():
     # Initial setup inputs for performance tuning.
-    max_posts = int(input("Maximum number of posts to scrape (default 50): ") or "50")
+    max_posts = int(input("Maximum number of posts to scrape (default 500): ") or "500")
     scroll_delay_min = float(input("Minimum scroll delay in seconds (default 1): ") or "1")
     scroll_delay_max = float(input("Maximum scroll delay in seconds (default 2): ") or "2")
     scroll_amount_min = int(input("Minimum scroll amount (default 500): ") or "500")
     scroll_amount_max = int(input("Maximum scroll amount (default 1200): ") or "1200")
-    max_scroll_attempts = int(input("Maximum scroll attempts (default 25): ") or "25")
+    max_scroll_attempts = int(input("Maximum scroll attempts (default 200): ") or "200")
     login_wait_min = float(input("Minimum login wait time in seconds (default 5): ") or "5")
     login_wait_max = float(input("Maximum login wait time in seconds (default 8): ") or "8")
     extra_pause_min = float(input("Extra pause minimum in seconds (default 0.5): ") or "0.5")

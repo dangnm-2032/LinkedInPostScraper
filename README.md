@@ -100,3 +100,8 @@ Results are saved in the `linkedin_data` directory as JSON files with the naming
 ## Disclaimer
 
 This tool is for educational purposes only. Use responsibly and in accordance with LinkedIn's terms of service. Excessive scraping may lead to account restrictions.
+
+
+/Applications/Microsoft\ Edge.app/Contents/MacOS/Microsoft\ Edge \ 
+  --remote-debugging-port=9222 \
+  --user-data-dir=/tmp/edge-profile
